@@ -1,0 +1,13 @@
+# Release binaries are restored with scripts/release.py download.
+# Historical screenshot gallery and future video working files are kept outside the release site.
+/images/
+/shots/
+/videos/
+__pycache__/
+
+# Machine-local deploy config (copy deploy.config.example.env -> deploy.env).
+deploy.env
+
+# Installers live in the Gitee/GitHub release attachments, not in git.
+# Keep dl/ as a local cache only: Gitee's git repo caps at 500 MB.
+/dl/

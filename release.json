@@ -1,0 +1,58 @@
+{
+  "version": "0.1.0",
+  "date": "2026-09-24",
+  "releaseUrl": "https://github.com/Tschome/workbench/releases/tag/v0.1.0",
+  "accessNote": "安装包由本站提供下载。GitHub 源仓库目前为私有，访问发布记录需要仓库权限。",
+  "packages": [
+    {
+      "id": "windows-setup",
+      "platform": "windows",
+      "arch": "x64",
+      "label": "Windows 安装版",
+      "filename": "AutoDev.Workbench_0.1.0_x64-setup.exe",
+      "url": "dl/AutoDev.Workbench_0.1.0_x64-setup.exe",
+      "size": 13875993,
+      "sha256": "4e607972a7df2a807ee42bf77ab50bad86f2f61b9db12cd10c4f08c38e1b52a6"
+    },
+    {
+      "id": "windows-portable",
+      "platform": "windows",
+      "arch": "x64",
+      "label": "Windows 便携版",
+      "filename": "AutoDev-Workbench-0.1.0-windows-x64-portable.zip",
+      "url": "dl/AutoDev-Workbench-0.1.0-windows-x64-portable.zip",
+      "size": 17690034,
+      "sha256": "39775b231980db242566b83b5b00ae9deda4d8e15db7c3221302e896ba165ca1"
+    },
+    {
+      "id": "macos-arm64",
+      "platform": "macos",
+      "arch": "arm64",
+      "label": "macOS · Apple 芯片",
+      "filename": "AutoDev.Workbench_0.1.0_aarch64.dmg",
+      "url": "dl/AutoDev.Workbench_0.1.0_aarch64.dmg",
+      "size": 17222672,
+      "sha256": "585f92707287aaf392970da620d3e90cb8db33f5ccfe61b3a6464148300ca2d2"
+    },
+    {
+      "id": "macos-x64",
+      "platform": "macos",
+      "arch": "x64",
+      "label": "macOS · Intel 芯片",
+      "filename": "AutoDev.Workbench_0.1.0_x64.dmg",
+      "url": "dl/AutoDev.Workbench_0.1.0_x64.dmg",
+      "size": 17820021,
+      "sha256": "9e064f6ff54cbc5bde008b720ac1c102e8661c05b16b0124b7f4dae6e85e3fae"
+    },
+    {
+      "id": "linux-deb",
+      "platform": "linux",
+      "arch": "x64",
+      "label": "Linux · Debian / Ubuntu",
+      "filename": "AutoDev.Workbench_0.1.0_amd64.deb",
+      "url": "dl/AutoDev.Workbench_0.1.0_amd64.deb",
+      "size": 19219452,
+      "sha256": "572e655ec65cf016e84722c3a255552b653d5d6e236ad0620d782ef939cd6df6"
+    }
+  ]
+}
