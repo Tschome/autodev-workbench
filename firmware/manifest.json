@@ -1,0 +1,41 @@
+{
+  "schemaVersion": 1,
+  "releaseVersion": "0.1.0",
+  "channel": "preview",
+  "generatedAt": "2026-10-10T02:05:01.418951+00:00",
+  "notice": "本目录发布的是随 Workbench 烧录器使用的 SPL/U-Boot 启动资源包，不是完整设备系统固件；发布前请按目标板卡和硬件版本复核。",
+  "bundles": [
+    {
+      "board": "prj-common-v1",
+      "chip": "PRJ-common-v1",
+      "version": "0.1.0",
+      "imageType": "cloner-runtime-bundle",
+      "isFullSystemFirmware": false,
+      "path": "firmware/v0.1.0/prj-common-v1/firmware-bundle.tar.gz",
+      "sha256": "57d98938614aca770bbf3176c25597b816af1656dc885b29f77dff1c918d5580",
+      "size": 210483,
+      "contents": [
+        "config.cfg",
+        "spl.bin",
+        "uboot.bin"
+      ],
+      "releaseNotes": "仅用于 AutoDev Workbench 烧录器运行时；不包含 rootfs、系统镜像或设备 OTA 全量固件。"
+    },
+    {
+      "board": "g32s10m",
+      "chip": "G32S10M",
+      "version": "0.1.0",
+      "imageType": "cloner-runtime-bundle",
+      "isFullSystemFirmware": false,
+      "path": "firmware/v0.1.0/g32s10m/firmware-bundle.tar.gz",
+      "sha256": "5c6c068ddf1e380f487890cf8b39ccbd1f2fc6ab3918a72e9378733e2a34e018",
+      "size": 171565,
+      "contents": [
+        "config.cfg",
+        "spl.bin",
+        "uboot.bin"
+      ],
+      "releaseNotes": "仅用于 AutoDev Workbench 烧录器运行时；不包含 rootfs、系统镜像或设备 OTA 全量固件。"
+    }
+  ]
+}\n

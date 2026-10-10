@@ -1,6 +1,6 @@
 # AutoDev Workbench 发布站
 
-本仓库是 AutoDev Workbench 的**对外发布仓库**：存放发布网页的静态源码，以及各平台安装包。仓库根目录就是站点根目录，不依赖桌面应用的 Vite/Tauri 构建。
+本仓库是 AutoDev Workbench 的**对外发布仓库**：存放发布网页的静态源码，、各平台安装包和 Workbench 烧录启动资源包。仓库根目录就是站点根目录，不依赖桌面应用的 Vite/Tauri 构建。
 
 设计采用暖白、墨色、低饱和工程插画；首页以使用场景组织内容，教程页采用侧栏、全文筛选和章节目录。
 
@@ -37,7 +37,7 @@ cp deploy.config.example.env deploy.env   # 填桶和域名
 - `release.json`：版本、文件 URL、大小和 SHA-256；安装包放在 `dl/`。
 - `scripts/check.mjs`：静态页面、教程 ID/章节和链接检查。
 - `scripts/release.py`：安装包的存在性、大小和 SHA-256 校验（及恢复）。
-- `scripts/deploy.sh`：上传到对象存储并做公网冒烟测试。
+- `scripts/deploy.sh`：上传到对象存储并做公网冒烟测试。\n- `firmware/manifest.json`：固件资源清单；当前仅包含 Cloner runtime 启动资源包。
 
 ## 校验
 
@@ -80,3 +80,4 @@ python3 scripts/release.py verify
 另于 2026-10-10 在本仓库（站点根目录布局）复核：`check.mjs` 通过、`release.py verify` 5 个包全部匹配、本地 HTTP 服务下首页/资源/`release.json` 均 200、5 个下载 HEAD 的 `Content-Length` 与清单一致、`deploy.sh` 全流程（校验→上传→冒烟测试）通过。
 
 **当前状态：本地可预览、文件已校验；尚未部署到任何公网。** 也没有配置过云厂商凭据，桌面应用的自动更新配置未改动。
+\n## 固件资源\n\nfirmware/ 只包含 config.cfg、spl.bin、uboot.bin 的版本化启动资源包，并提供 SHA-256。当前不包含 rootfs、系统分区镜像、完整 OTA 镜像或生产签名文件。\n

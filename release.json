@@ -59,5 +59,7 @@
       "size": 19219452,
       "sha256": "572e655ec65cf016e84722c3a255552b653d5d6e236ad0620d782ef939cd6df6"
     }
-  ]
-}
+  ],
+  "firmwareManifest": "firmware/manifest.json",
+  "firmwareNotice": "当前发布的是 Workbench Cloner runtime 启动资源包，不是完整系统固件；下载前请按 manifest 和 SHA-256 核对。"
+}\n
