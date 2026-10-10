@@ -3,15 +3,15 @@
   "date": "2026-09-24",
   "sources": {
     "cn": "https://gitee.com/tschome/autodev-workbench/releases/download/v0.1.0",
-    "global": "https://github.com/Tschome/workbench/releases/download/v0.1.0"
+    "global": "https://github.com/Tschome/autodev-workbench/releases/download/v0.1.0"
   },
   "releasePages": {
     "cn": "https://gitee.com/tschome/autodev-workbench/releases/tag/v0.1.0",
-    "global": "https://github.com/Tschome/workbench/releases/tag/v0.1.0"
+    "global": "https://github.com/Tschome/autodev-workbench/releases/tag/v0.1.0"
   },
   "notes": {
     "cn": "当前下载源：Gitee（国内）。",
-    "global": "当前下载源：GitHub（海外）。源仓库为私有，访问发布记录需要仓库权限。"
+    "global": "当前下载源：GitHub（海外）。"
   },
   "packages": [
     {

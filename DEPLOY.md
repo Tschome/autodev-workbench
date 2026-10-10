@@ -1,115 +1,106 @@
-# 部署：本机 → 对象存储 → CDN
+# 部署与发布
 
-本仓库是对外发布仓库：静态网页 + 各平台安装包。网页的对外访问走**自有对象存储 + CDN**，不在 Gitee 上托管（Gitee Pages 已下线，见文末）。
+三个位置：
 
-```
-本机(本仓库)  --rclone-->  对象存储桶  --CDN-->  用户
-                             │
-                             └─ www.<domain>      网页（index.html / docs.html / assets）
-                             └─ updates.<domain>  安装包（dl/），可选拆分
-```
+| 位置 | 作用 |
+|---|---|
+| Gitee `tschome/autodev-workbench` | 国内下载源；网页源码副本 |
+| GitHub `Tschome/autodev-workbench` | 海外下载源；网页源码副本（公开） |
+| ECS `101.132.58.126` | 托管网页（nginx，站点目录 `/opt/autodev/www`） |
 
-## 1. 前置
+访客打开首页后，`site.js` 先按**国内源渲染**（下载区立刻可用），再用 IP 归属探测：中国大陆 → Gitee，其他地区 → GitHub；探测超时或失败一律回落 Gitee。
 
-| 依赖 | 用途 | 本机状态 |
-|---|---|---|
-| `rclone` | 上传到 OSS/COS/Qiniu | ✅ 1.75.1（`brew install rclone`） |
-| `node` | 静态检查 `scripts/check.mjs` | ✅ v26.7.0 |
-| `python3` | 安装包校验 `scripts/release.py verify` | ✅ 系统 3.9.6 |
+## 1. 发布安装包
 
-## 2. 一次配置 rclone
-
-`rclone` 的 `s3` 后端已支持 Alibaba / TencentCOS / Qiniu（可用 `rclone config providers` 核对）：
+清单是 `release.json`，安装包本地缓存在 `dl/`（**不入 git**）。两个平台各发一份发行版：
 
 ```sh
-rclone config        # n → 起个名字 → 选 s3 → provider 选对应厂商 → 填 AK/SK 和 endpoint
+# 国内：Gitee 发行版附件（token 放 ~/.config/gitee/token 或 $GITEE_TOKEN）
+python3 scripts/publish-gitee-release.py --dry-run
+python3 scripts/publish-gitee-release.py
+
+# 海外：GitHub Release（gh 已登录 Tschome）
+gh release create v0.1.0 --repo Tschome/autodev-workbench \
+  --title "AutoDev Workbench v0.1.0" --notes "安装包见附件。" \
+  dl/AutoDev.Workbench_0.1.0_x64-setup.exe dl/AutoDev-Workbench-0.1.0-windows-x64-portable.zip \
+  dl/AutoDev.Workbench_0.1.0_aarch64.dmg dl/AutoDev.Workbench_0.1.0_x64.dmg \
+  dl/AutoDev.Workbench_0.1.0_amd64.deb
 ```
 
-阿里云 OSS 的例子（填进 `rclone config` 对应的字段即可）：
+`release.json` 结构：
 
-```
-[alioss]
-type     = s3
-provider = Alibaba
-access_key_id     = <AccessKeyId>
-secret_access_key = <AccessKeySecret>
-endpoint = oss-cn-hangzhou.aliyuncs.com
+```json
+"sources":      { "cn": ".../releases/download/v0.1.0", "global": ".../releases/download/v0.1.0" },
+"releasePages": { "cn": ".../releases/tag/v0.1.0",      "global": ".../releases/tag/v0.1.0" },
+"notes":        { "cn": "当前下载源：Gitee（国内）。", "global": "当前下载源：GitHub（海外）。" },
+"packages":     [ { "id", "platform", "arch", "label", "filename", "size", "sha256" } ]
 ```
 
-腾讯云 COS：`provider = TencentCOS`，`endpoint = cos.ap-guangzhou.myqcloud.com`。
-其他厂商照 `rclone config` 的提示走。配置完 `rclone listremotes` 应能看到 `alioss:`。
+发新版时按这个顺序走，**不要只改 URL 或版本号**：
 
-## 3. deploy.env
+1. 从源码仓库 `github.com/Tschome/workbench` 的 Actions 取得新版本的真实发布包；
+2. 计算字节数和 SHA-256，写入 `release.json` 的 `packages`，同时更新 `version` / `date` / `sources` / `releasePages`；
+3. 同步首页（`index.html`）的版本文案；
+4. 用上面的命令把包发到两个平台；
+5. 跑第 4 节的校验，再部署。
+
+## 2. 部署网页到 ECS
+
+```sh
+rsync -az --delete \
+  --exclude '.git/' --exclude '.gitignore' --exclude 'dl/' --exclude 'scripts/' \
+  --exclude 'README.md' --exclude 'DEPLOY.md' \
+  --exclude 'deploy.env' --exclude 'deploy.config.example.env' \
+  ./ root@101.132.58.126:/opt/autodev/www/
+
+ssh root@101.132.58.126 'chown -R root:root /opt/autodev/www && nginx -t && systemctl reload nginx'
+```
+
+只上传网页和清单：`dl/`（安装包）和 `scripts/` 不进公网目录。
+
+nginx 虚拟主机在 `/etc/nginx/sites-available/autodev-www`，`server_name 101.132.58.126;`，站点根 `/opt/autodev/www`。
+
+> 服务器上另有 `autodev-ota`（默认站，根 `/opt/autodev/ota`，提供 `/latest.json` 和 `/ota/`）承载桌面应用的 OTA 更新。**改网页不要动它。**
+
+## 3. 域名与 HTTPS（待办）
+
+现在只绑了 IP，所以只能用 `http://101.132.58.126/`。拿到域名后：
+
+1. 域名加进 `autodev-www` 的 `server_name`；
+2. `certbot --nginx -d <domain>` 签发并自动续期 HTTPS；
+3. 回头把本文件里的地址改成域名。
+
+顺带一提：这台 ECS 的 nginx 已经装了 **GeoIP2 模块**（`50-mod-http-geoip2.conf`），需要的话可以把 IP 归属判断从浏览器挪到服务端，比前端调第三方接口更稳、也不依赖访客网络。
+
+## 4. 上传前校验
+
+```sh
+node scripts/check.mjs            # JS 语法 + 本地链接/锚点 + 清单结构（双源、文件名、SHA-256）
+python3 scripts/release.py verify # dl/ 中安装包的存在性、字节数与 SHA-256
+```
+
+`check.mjs` 是离线检查，允许本地没有安装包缓存；`release.py verify` 严格要求包存在且字节与摘要一致。
+
+## 5. 部署后冒烟测试
+
+`scripts/deploy.sh` 是给**对象存储**用的（rclone）：校验 → 上传站点 → 对首页和两个下载源的每个包发 HEAD 请求核对 `Content-Length`。
 
 ```sh
 cp deploy.config.example.env deploy.env
-$EDITOR deploy.env
+./scripts/deploy.sh --dry-run
+./scripts/deploy.sh                       # 对象存储；当前网页走 ECS，暂不需要
+./scripts/deploy.sh --target /tmp/out     # 本地目录也能跑，用来单测链路
 ```
 
-`deploy.env` 被 gitignore，不会入库。字段：
+当前网页走 ECS，所以主要用它第 4 步（冒烟测试）的思路；将来改成 OSS + CDN 时直接用它。
 
-| 变量 | 说明 |
-|---|---|
-| `RCLONE_REMOTE` | rclone remote 名，需与 `rclone listremotes` 一致 |
-| `SITE_TARGET` | 网页目标：`<remote>:<bucket>[/<prefix>]` |
-| `DL_TARGET` | 可选，安装包单独放另一个桶/域名时用（见第 6 节） |
-| `SITE_BASE_URL` | 部署后冒烟测试用的公网地址 |
+## 6. 平台限制
 
-## 4. 部署
+- **Gitee 社区版**：git 单文件 ≤ 50MB、单仓库 ≤ 500MB；**发行版附件**单文件 ≤ 100MB、单仓库合计 ≤ 1GB。安装包每版本约 82MB，所以走附件、不进 git 历史。
+- **GitHub Release**：公开仓库的附件匿名可下载，单个附件上限 2GB。
+- 两个平台的发行版都要发；只发一边会让另一半访客下载失败。
 
-```sh
-./scripts/deploy.sh --dry-run        # 先看会传哪些文件
-./scripts/deploy.sh                  # 安全上传（rclone copy，永不删除远端文件）
-./scripts/deploy.sh --delete         # 真正同步（rclone sync，会删除远端多余文件）
-```
+## 7. 已知
 
-脚本固定做四步：
-
-1. 跑 `node scripts/check.mjs` + `python3 scripts/release.py verify`，校验不过就**不上传**；
-2. `rclone copy/sync` 仓库根目录到 `SITE_TARGET`，上传时带 `Cache-Control: public, max-age=300`；
-3. 安装包默认跟着网页一起传（`release.json` 里是相对 `dl/` 链接，URL 直接可用）；
-4. 若设了 `SITE_BASE_URL`，对首页和 `release.json` 里的每个安装包发 HEAD 请求，核对 200 与 `Content-Length`。
-
-自动排除：`.git/`、`.gitignore`、`scripts/`、`README.md`、`DEPLOY.md`、`deploy.env`、`deploy.config.example.env`、`__pycache__/`、`.DS_Store`。也就是只有网页和安装包会上传。
-
-本地不接云端也能验证链路（把目标换成目录即可，脚本支持本地路径）：
-
-```sh
-./scripts/deploy.sh --target /tmp/site-out
-```
-
-## 5. 域名、CDN 和备案
-
-- `www.<domain>` 指向网页桶；开启 CDN 加速。
-- 缓存策略：`index.html` / `docs.html` / `release.json` 用短缓存（脚本已设 300s）；`dl/` 里的安装包用长缓存（`max-age=31536000, immutable`），因为文件名带版本号，内容不会变。
-- **发新版后必须刷新 CDN 缓存**：至少刷 `index.html`、`docs.html`、`release.json` 三个 URL。
-- 中国大陆节点加速通常要求域名 **ICP 备案**；未备案就先只开境外/香港节点。
-- 全站走 HTTPS；`dl/` 大文件建议关掉回源压缩。
-
-## 6. 把安装包放到独立域名（可选，需要改代码）
-
-如果按 `www` / `updates` 拆分，把 `release.json` 里每个 `url` 改成绝对地址（如 `https://updates.example.com/dl/xxx`），同时必须改两处，否则校验会失败：
-
-- `scripts/check.mjs`：写死了 `item.url !== 'dl/' + item.filename`，会报 `Invalid manifest entry`。
-- `scripts/release.py`：`manifest()` 同样按 `dl/<filename>` 校验。
-
-不改的话保持单桶（默认路径）最省事，`site.js` 直接用相对 `dl/` 链接，零改动。
-
-## 7. 推送到 Gitee
-
-```sh
-git remote add origin https://gitee.com/tschome/autodev-workbench.git   # 若尚未添加
-git add -A
-git commit -m "chore: 发布站源码与 v0.1.0 安装包"
-git push -u origin master        # Gitee 新建仓库默认分支是 master
-```
-
-> **配额提醒**：Gitee 社区版 **单文件 ≤ 50MB、单仓库 ≤ 500MB**。`dl/` 每版本约 82MB，
-> 大约 5 个版本就会顶到仓库上限。到那时把安装包改放 Gitee「发行版附件」
-> （单文件 ≤ 100MB、单仓库合计 ≤ 1GB），仓库里只留网页源码。
-
-## 8. 已知限制
-
-- **Gitee Pages 已下线**：Gitee 帮助中心已无 Pages 文档，旧文档地址 `/help/articles/4328` 现在重定向到首页；Gitee Feedback 多个 issue 中客服明确回复「由于不可抗原因，Pages 服务已经下线，暂无具体计划再次上线」。所以**网页不能托管在 Gitee 上**，只能存源码。
-- `release.json` 的 `releaseUrl` / `accessNote` 目前仍指向 GitHub 私有仓库（源仓库 `github.com/Tschome/workbench`）。安装包实际由该仓库的 GitHub Actions 产出，`scripts/release.py download` 也从那里恢复文件；这是**开发期恢复**用途，与对外下载无关。
-- 当前**尚未部署过公网**，也没有配置过任何云厂商凭据。
+- `docs.html` 里的「源文档 · GitHub」仍指向**私有**源码仓库 `github.com/Tschome/workbench`，对公网访客不可用（页面已标注需仓库访问权限）。公开文档站做出来之前先保持现状。
+- 网页目前只有 IP 地址，没有域名，也没有 HTTPS。
