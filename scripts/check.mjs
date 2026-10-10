@@ -41,9 +41,16 @@ for (const [file, html] of sources) {
 const release = JSON.parse(read('release.json'));
 const expectedIds = ['windows-setup', 'windows-portable', 'macos-arm64', 'macos-x64', 'linux-deb'];
 for (const id of expectedIds) if (!release.packages.some(p => p.id === id)) errors.push(`Missing download option ${id}`);
-for (const item of release.packages) {
-  if (item.url !== `dl/${item.filename}` || !/^[a-f0-9]{64}$/.test(item.sha256) || !Number.isInteger(item.size) || item.size <= 0) errors.push(`Invalid manifest entry: ${item.id}`);
+const downloadSources = release.sources || {};
+const releasePages = release.releasePages || {};
+for (const key of ['cn', 'global']) {
+  if (!/^https:\/\/\S+$/.test(downloadSources[key] || '')) errors.push(`Invalid ${key} download source`);
+  if (!/^https:\/\/\S+$/.test(releasePages[key] || '')) errors.push(`Invalid ${key} release page`);
 }
+for (const item of release.packages) {
+  if (!/^[A-Za-z0-9_.-]+$/.test(item.filename) || !/^[a-f0-9]{64}$/.test(item.sha256) || !Number.isInteger(item.size) || item.size <= 0) errors.push(`Invalid manifest entry: ${item.id}`);
+}
+if (new Set(release.packages.map(p => p.filename)).size !== release.packages.length) errors.push('Duplicate package filename');
 if (!read('index.html').includes(`v${release.version}`)) errors.push('Homepage and release version differ');
 if (errors.length) { console.error(errors.join('\n')); process.exitCode = 1; }
 else console.log(`OK: JavaScript syntax, ${docs.length} guides, ${checked} local links/anchors, ${release.packages.length} download entries.\nBinary availability and SHA-256 require: python3 scripts/release.py verify`);

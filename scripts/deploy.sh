@@ -34,7 +34,6 @@ if [ -f deploy.env ]; then
 fi
 
 SITE_TARGET="${TARGET_OVERRIDE:-${SITE_TARGET:-}}"
-DL_TARGET="${DL_TARGET:-}"
 SITE_BASE_URL="${SITE_BASE_URL:-}"
 RCLONE_REMOTE="${RCLONE_REMOTE:-}"
 
@@ -71,22 +70,13 @@ rclone "$MODE" . "$SITE_TARGET" $DRY \
   --exclude "scripts/**" \
   --exclude "README.md" \
   --exclude "DEPLOY.md" \
+  --exclude "dl/**" \
   --exclude "__pycache__/**" \
   --exclude "*.pyc" \
   --stats-one-line -v
 
-if [ -n "$DL_TARGET" ] && [ "$DL_TARGET" != "$SITE_TARGET" ]; then
-  echo "==> 3/4  uploading packages -> $DL_TARGET"
-  echo "    NOTE: with a separate package host, release.json 'url' values must be"
-  echo "          absolute — see DEPLOY.md, section 「把安装包放到独立域名」."
-  # shellcheck disable=SC2086
-  rclone "$MODE" dl "$DL_TARGET" $DRY \
-    --checksum \
-    --header-upload "Cache-Control: public, max-age=31536000, immutable" \
-    --stats-one-line -v
-else
-  echo "==> 3/4  packages ship inside the site target (relative dl/ links)"
-fi
+echo "==> 3/4  installers come from the release pages, not the site target"
+python3 -c 'import json; d=json.load(open("release.json")); print("    cn     ->", d["sources"]["cn"]); print("    global ->", d["sources"]["global"])'
 
 if [ -z "$SITE_BASE_URL" ]; then
   echo "==> 4/4  smoke test skipped (SITE_BASE_URL not set)"
@@ -105,24 +95,42 @@ echo "    OK    $base/  [200]"
 
 python3 - "$base" <<'PY'
 import json, sys, urllib.request
+
 base = sys.argv[1].rstrip('/')
 data = json.load(open('release.json', encoding='utf-8'))
 bad = 0
-for item in data['packages']:
-    url = base + '/' + item['url']
+
+# 1. the deployed static assets
+for asset in ('release.json', 'docs.html'):
+    url = f'{base}/{asset}'
     try:
-        req = urllib.request.Request(url, method='HEAD')
-        with urllib.request.urlopen(req, timeout=30) as r:
-            cl = int(r.headers.get('Content-Length') or -1)
-            ok = r.status == 200 and cl == item['size']
+        with urllib.request.urlopen(url, timeout=30) as resp:
+            ok = resp.status == 200
     except Exception as exc:                      # noqa: BLE001
         print(f"    FAIL  {url}  ({exc})")
         bad += 1
         continue
-    print(f"    {'OK  ' if ok else 'FAIL'}  {url}  {cl}/{item['size']}")
+    print(f"    {'OK  ' if ok else 'FAIL'}  {url}")
     bad += 0 if ok else 1
+
+# 2. both mirrors must serve every package at the recorded size
+for key, source in sorted(data['sources'].items()):
+    for item in data['packages']:
+        url = f"{source}/{item['filename']}"
+        try:
+            req = urllib.request.Request(url, method='HEAD')
+            with urllib.request.urlopen(req, timeout=60) as resp:
+                length = int(resp.headers.get('Content-Length') or -1)
+                ok = resp.status == 200 and length == item['size']
+        except Exception as exc:                  # noqa: BLE001
+            print(f"    FAIL  [{key}] {url}  ({exc})")
+            bad += 1
+            continue
+        print(f"    {'OK  ' if ok else 'FAIL'}  [{key}] {item['filename']}  {length}/{item['size']}")
+        bad += 0 if ok else 1
+
 if bad:
-    print(f"{bad} download URL(s) failed", file=sys.stderr)
+    print(f"{bad} check(s) failed", file=sys.stderr)
 sys.exit(1 if bad else 0)
 PY
 

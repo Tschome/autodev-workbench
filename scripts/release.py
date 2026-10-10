@@ -14,16 +14,17 @@ SITE = Path(__file__).resolve().parents[1]
 
 def manifest():
     data = json.loads((SITE / 'release.json').read_text(encoding='utf-8'))
-    match = re.fullmatch(r'https://github\.com/([\w.-]+/[\w.-]+)/releases/tag/(v[\w.-]+)', data['releaseUrl'])
+    match = re.fullmatch(r'https://github\.com/([\w.-]+/[\w.-]+)/releases/download/(v[\w.-]+)',
+                         (data.get('sources') or {}).get('global', ''))
     if not match or match[2] != 'v' + data['version']:
-        raise ValueError('releaseUrl must identify the manifest version on GitHub')
+        raise ValueError('sources.global must identify the manifest version on GitHub')
     names, ids = set(), set()
     for item in data['packages']:
         name = item['filename']
         if not re.fullmatch(r'[A-Za-z0-9_.-]+', name) or name.startswith('.'):
             raise ValueError(f'Invalid asset filename: {name}')
-        if item['url'] != 'dl/' + name or name in names or item['id'] in ids:
-            raise ValueError(f'Duplicate asset or inconsistent URL: {name}')
+        if name in names or item['id'] in ids:
+            raise ValueError(f'Duplicate asset: {name}')
         if type(item['size']) is not int or item['size'] <= 0 or not re.fullmatch(r'[a-f0-9]{64}', item['sha256']):
             raise ValueError(f'Invalid size or SHA-256: {name}')
         names.add(name)
@@ -31,6 +32,11 @@ def manifest():
     if not names:
         raise ValueError('No release packages')
     return data, match[1], match[2]
+
+
+def local_path(item):
+    """Installers are cached locally in dl/; they ship as release attachments."""
+    return SITE / 'dl' / item['filename']
 
 
 def verify_file(path, item):
@@ -51,7 +57,7 @@ def run(mode):
     if mode == 'download':
         missing = []
         for item in data['packages']:
-            target = SITE / item['url']
+            target = local_path(item)
             if target.is_symlink():
                 raise ValueError(f'Refusing symlink: {target.name}')
             if target.exists():
@@ -77,7 +83,7 @@ def run(mode):
                                     '--pattern', item['filename'], '--dir', temp], check=True, timeout=240)
                     downloaded = Path(temp) / item['filename']
                     verify_file(downloaded, item)
-                    target = SITE / item['url']
+                    target = local_path(item)
                     # Exclusive creation preserves any file another process wrote meanwhile.
                     with downloaded.open('rb') as source, target.open('xb') as destination:
                         try:
@@ -87,7 +93,7 @@ def run(mode):
                             raise
                     print(f'Restored {item["filename"]}', flush=True)
     for item in data['packages']:
-        verify_file(SITE / item['url'], item)
+        verify_file(local_path(item), item)
         print(f'OK {item["filename"]} ({item["size"]:,} bytes)', flush=True)
     print(f'Verified v{data["version"]}: {len(data["packages"])} packages')
 

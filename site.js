@@ -106,18 +106,50 @@
 
   const grid = document.getElementById('download-grid');
   const summary = document.getElementById('release-summary');
+  const releaseRecord = document.getElementById('release-record');
+  const sourceNote = document.getElementById('source-note');
   const esc = (value) => String(value).replace(/[&<>"']/g, (character) => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#039;'}[character]));
+
+  // 按访客 IP 归属选择下载源：中国大陆 → Gitee，其他地区 → GitHub。
+  // 探测失败一律回落到国内源，Gitee 在海外同样可访问。
+  const GEO_PROBES = [
+    (signal) => fetch('https://api.ip.sb/geoip', { signal, cache: 'no-store' }).then((response) => { if (!response.ok) throw new Error('geo'); return response.json(); }).then((data) => data.country_code),
+    (signal) => fetch('https://ipapi.co/json/', { signal, cache: 'no-store' }).then((response) => { if (!response.ok) throw new Error('geo'); return response.json(); }).then((data) => data.country_code)
+  ];
+  const detectSource = () => {
+    const controller = new AbortController();
+    const timer = setTimeout(() => controller.abort(), 2500);
+    const probes = GEO_PROBES.map((probe) => probe(controller.signal));
+    const first = typeof Promise.any === 'function' ? Promise.any(probes) : probes[0];
+    return first
+      .then((code) => (String(code || '').toUpperCase() === 'CN' ? 'cn' : 'global'))
+      .catch(() => 'cn')
+      .finally(() => clearTimeout(timer));
+  };
+
   if (grid) fetch('release.json', { cache: 'no-store' }).then((response) => { if (!response.ok) throw new Error('manifest'); return response.json(); }).then((release) => {
-    if (summary) summary.textContent = 'v' + release.version + ' · ' + release.date + ' · 已核验的安装包';
     const platforms = [
       {id:'windows', title:'Windows', icon:'⊞', description:'x64 · 安装版或解压即用的便携版'},
       {id:'macos', title:'macOS', icon:'⌘', description:'Apple 芯片与 Intel · DMG 安装包'},
       {id:'linux', title:'Linux', icon:'>_', description:'x64 · Debian / Ubuntu · DEB 安装包'}
     ];
     const labels = {'windows-setup':'安装版 .exe','windows-portable':'便携版 .zip','macos-arm64':'Apple 芯片','macos-x64':'Intel 芯片','linux-deb':'下载 .deb'};
-    grid.innerHTML = platforms.map((platform) => '<article class="download-platform"><div class="os-icon" aria-hidden="true">' + platform.icon + '</div><h3>' + platform.title + '</h3><p>' + platform.description + '</p><div class="download-options">' + release.packages.filter((item) => item.platform === platform.id).map((item) => '<a href="' + esc(item.url) + '" download aria-label="下载 '+esc(item.label)+'">' + labels[item.id] + ' ↓<small>' + (item.size / 1024 / 1024).toFixed(1) + ' MB</small></a>').join('') + '</div></article>').join('');
+    let rendered = '';
+    const render = (sourceKey) => {
+      if (rendered === sourceKey) return;
+      rendered = sourceKey;
+      const sources = release.sources || {};
+      const base = sources[sourceKey] || sources.cn;
+      const page = (release.releasePages || {})[sourceKey];
+      if (summary) summary.textContent = 'v' + release.version + ' · ' + release.date + ' · 已核验的安装包';
+      if (sourceNote) sourceNote.textContent = (release.notes || {})[sourceKey] || '';
+      if (releaseRecord && page) { releaseRecord.href = page; releaseRecord.textContent = (sourceKey === 'cn' ? 'Gitee 发布记录' : 'GitHub 发布记录') + ' ↗'; }
+      grid.innerHTML = platforms.map((platform) => '<article class="download-platform"><div class="os-icon" aria-hidden="true">' + platform.icon + '</div><h3>' + platform.title + '</h3><p>' + platform.description + '</p><div class="download-options">' + release.packages.filter((item) => item.platform === platform.id).map((item) => '<a href="' + esc(base + '/' + item.filename) + '" download aria-label="下载 '+esc(item.label)+'">' + labels[item.id] + ' ↓<small>' + (item.size / 1024 / 1024).toFixed(1) + ' MB</small></a>').join('') + '</div></article>').join('');
+    };
+    render('cn');                       // 先按国内源渲染，保证下载区立刻可用
+    detectSource().then(render);        // 探测到海外则原地切换
   }).catch(() => {
     if (summary) summary.textContent = '发布清单暂时不可用';
-    grid.innerHTML = '<div class="download-platform"><h3>打开发布记录</h3><p>请从 GitHub Release 查看当前安装包。</p><a class="download-options" href="https://github.com/Tschome/workbench/releases" target="_blank" rel="noreferrer">查看发布记录 ↗</a></div>';
+    grid.innerHTML = '<div class="download-platform"><h3>打开发布记录</h3><p>请从发布记录查看当前安装包。</p><a class="download-options" href="https://gitee.com/tschome/autodev-workbench/releases" target="_blank" rel="noreferrer">查看发布记录 ↗</a></div>';
   });
 })();
