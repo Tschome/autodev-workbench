@@ -62,4 +62,4 @@
   ],
   "firmwareManifest": "firmware/manifest.json",
   "firmwareNotice": "当前发布的是 Workbench Cloner runtime 启动资源包，不是完整系统固件；下载前请按 manifest 和 SHA-256 核对。"
-}\n
+}

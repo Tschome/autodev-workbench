@@ -38,4 +38,4 @@
       "releaseNotes": "仅用于 AutoDev Workbench 烧录器运行时；不包含 rootfs、系统镜像或设备 OTA 全量固件。"
     }
   ]
-}\n
+}
