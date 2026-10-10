@@ -101,7 +101,7 @@ data = json.load(open('release.json', encoding='utf-8'))
 bad = 0
 
 # 1. the deployed static assets
-for asset in ('release.json', 'docs.html'):
+for asset in ('release.json', 'docs.html', 'firmware/manifest.json'):
     url = f'{base}/{asset}'
     try:
         with urllib.request.urlopen(url, timeout=30) as resp:
